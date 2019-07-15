@@ -1,4 +1,4 @@
-defmodule Megasquirt.Scene.SysInfo do
+defmodule Megasquirt.Scene.Dash do
   use Scenic.Scene
   alias Scenic.Graph
   import Scenic.Primitives

@@ -2,7 +2,7 @@ defmodule Megasquirt.UART do
   use GenServer
   require Logger
   alias Circuits.UART
-  alias Megasquirt.RealtimeParser
+  alias Megasquirt.UART.RealtimeData
 
   def start_link(args, opts \\ [name: __MODULE__]) do
     GenServer.start_link(__MODULE__, args, opts)
@@ -38,7 +38,7 @@ defmodule Megasquirt.UART do
 
     case UART.write(state.uart, write) do
       :ok ->
-        {:noreply, state}
+        {:noreply, state, 1000}
 
       error ->
         Logger.error("Failed to write data: #{inspect(data)} #{inspect(error)}")
@@ -56,7 +56,7 @@ defmodule Megasquirt.UART do
   end
 
   def handle_info({:circuits_uart, _, <<_::big-integer-size(16), 0x01, data::binary>>}, state) do
-    parsed = RealtimeParser.parse(data)
+    parsed = RealtimeData.parse(data)
 
     Registry.dispatch(state.registry, :dispatch, fn entries ->
       for {pid, nil} <- entries, do: send(pid, {:realtime, parsed})
@@ -66,7 +66,14 @@ defmodule Megasquirt.UART do
     {:noreply, state}
   end
 
+  def handle_info(:timeout, %{status: :open} = state) do
+    Logger.warn("Timeout waiting for response. Trying again")
+    send(self(), :get_realtime_data)
+    {:noreply, state}
+  end
+
   def handle_info(data, state) do
+    _ = inspect(data)
     # Logger.error """
     # Unknown data: #{inspect(data, limit: :infinity)}
     # for state: #{state.status}
