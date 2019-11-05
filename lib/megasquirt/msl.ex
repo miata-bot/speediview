@@ -10,6 +10,7 @@ defmodule Megasquirt.MSL do
 
   def header([format, capture_date, fields | data]) do
     fields = fields(fields)
+
     %MSL{
       format: String.trim(format, "\""),
       capture_date: String.trim(capture_date, "\""),

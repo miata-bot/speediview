@@ -56,11 +56,15 @@ defmodule Megasquirt.UART do
   end
 
   def handle_info({:circuits_uart, _, <<_::big-integer-size(16), 0x01, data::binary>>}, state) do
-    parsed = RealtimeData.parse(data)
+    case RealtimeData.parse(data) do
+      :error ->
+        :noop
 
-    Registry.dispatch(state.registry, :dispatch, fn entries ->
-      for {pid, nil} <- entries, do: send(pid, {:realtime, parsed})
-    end)
+      parsed ->
+        Registry.dispatch(state.registry, :dispatch, fn entries ->
+          for {pid, nil} <- entries, do: send(pid, {:realtime, parsed})
+        end)
+    end
 
     Process.send_after(self(), :get_realtime_data, 100)
     {:noreply, state}

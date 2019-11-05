@@ -1,55 +1,91 @@
 defmodule Megasquirt.Scene.Dash do
   use Scenic.Scene
   alias Scenic.Graph
-  import Scenic.Primitives
+  # import Scenic.Primitives
+  import Megasquirt.Gauge
+  @intro_animation_time 50
 
   def init(args, _opts) do
+    IO.inspect(self, label: "PID")
     registry = Keyword.fetch!(args, :registry)
 
     graph =
       Graph.build()
-      |> gauge_init(100, fill: :white, id: :rpm, translate: {100, 100})
-      |> gauge_init(100, fill: :white, id: :map, translate: {400, 100})
-      |> gauge_init(100, fill: :white, id: :afr, translate: {700, 100})
-      |> gauge_init(100, fill: :white, id: :clt, translate: {100, 350})
-      |> gauge_init(100, fill: :white, id: :tps, translate: {400, 350})
-      |> gauge_init(100, fill: :white, id: :adv, translate: {700, 350})
+      |> gauge(:rpm, %{value: 0.0, text: float(0.0)}, translate: {0, 50})
+      |> gauge(:map, %{value: 0.0, text: float(0.0)}, translate: {300, 50})
+      |> gauge(:afr, %{value: 0.0, text: float(0.0)}, translate: {600, 50})
+      |> gauge(:clt, %{value: 0.0, text: float(0.0)}, translate: {0, 200})
+      |> gauge(:tps, %{value: 0.0, text: float(0.0)}, translate: {300, 200})
+      |> gauge(:adv, %{value: 0.0, text: float(0.0)}, translate: {600, 200})
 
     {:ok, _} = Registry.register(registry, :dispatch, nil)
-    {:ok, %{graph: graph}, push: graph}
+    send(self(), {:intro_animation_forward, 0.0})
+    {:ok, %{graph: graph, animation_playing: true}, push: graph}
   end
 
-  def handle_info({:realtime, data}, state) do
+  def handle_info({:intro_animation_forward, v}, state) when v >= 1.0 do
+    send(self(), {:intro_animation_backward, 1.0})
+    {:noreply, state}
+  end
+
+  def handle_info({:intro_animation_forward, value}, state) do
     graph =
       state.graph
-      |> gauge_update(:rpm, data.rpm)
-      |> gauge_update(:map, data.map)
-      |> gauge_update(:afr, data.afr1)
-      |> gauge_update(:clt, data.coolant)
-      |> gauge_update(:tps, data.tps)
-      |> gauge_update(:adv, data.advance)
+      |> update_gauge(:rpm, %{value: value, text: float(value * 100)})
+      |> update_gauge(:map, %{value: value, text: float(value * 100)})
+      |> update_gauge(:afr, %{value: value, text: float(value * 100)})
+      |> update_gauge(:clt, %{value: value, text: float(value * 100)})
+      |> update_gauge(:tps, %{value: value, text: float(value * 100)})
+      |> update_gauge(:adv, %{value: value, text: float(value * 100)})
+
+    Process.send_after(self(), {:intro_animation_forward, value + 0.1}, @intro_animation_time)
+    {:noreply, %{state | graph: graph}, push: graph}
+  end
+
+  def handle_info({:intro_animation_backward, v}, state) when v <= 0.0 do
+    {:noreply, %{state | animation_playing: false}}
+  end
+
+  def handle_info({:intro_animation_backward, value}, state) do
+    graph =
+      state.graph
+      |> update_gauge(:rpm, %{value: value, text: float(value * 100)})
+      |> update_gauge(:map, %{value: value, text: float(value * 100)})
+      |> update_gauge(:afr, %{value: value, text: float(value * 100)})
+      |> update_gauge(:clt, %{value: value, text: float(value * 100)})
+      |> update_gauge(:tps, %{value: value, text: float(value * 100)})
+      |> update_gauge(:adv, %{value: value, text: float(value * 100)})
+
+    Process.send_after(self(), {:intro_animation_backward, value - 0.1}, @intro_animation_time)
+    {:noreply, %{state | graph: graph}, push: graph}
+  end
+
+  def handle_info({:realtime, data}, %{animation_playing: false} = state) do
+    graph =
+      state.graph
+      |> update_gauge(:rpm, scale_to_gauge(data.rpm, 0.0, 8000.0))
+      |> update_gauge(:map, scale_to_gauge(data.map, 0.0, 110.0))
+      |> update_gauge(:afr, scale_to_gauge(data.afr1, 0.0, 18.0))
+      |> update_gauge(:clt, scale_to_gauge(data.clt, 0.0, 275.0))
+      |> update_gauge(:tps, scale_to_gauge(data.tps, 0.0, 100.0))
+      |> update_gauge(:adv, scale_to_gauge(data.advance, 0.0, 55.0))
 
     {:noreply, %{state | graph: graph}, push: graph}
   end
 
-  def gauge_update(graph, id, value) do
-    Graph.modify(graph, {id, :value}, &text(&1, to_string(value)))
+  def handle_info({:realtime, _}, state) do
+    {:noreply, state, push: state.graph}
   end
 
-  def gauge_init(graph, radius, opts) do
-    value = 0.0
-    name = opts[:id]
-    {x, y} = from = opts[:translate]
+  def float(data) when is_float(data) do
+    to_string(:io_lib.format('~.2f', [data]))
+  end
 
-    graph
-    |> circle(radius, opts)
-    |> line({from, {x + 80, y + 50}}, id: {name, :line}, fill: :red)
-    |> text(to_string(name), translate: from, fill: :black, text_align: :center)
-    |> text(to_string(value),
-      id: {name, :value},
-      translate: {x, y + 80},
-      fill: :black,
-      text_align: :center
-    )
+  def scale_to_gauge(0, _, _), do: 0
+
+  def scale_to_gauge(value, low, high) do
+    x = (value - low) / (high - low)
+    scaled = 0.0 + (1.0 - 0.0) * x
+    %{value: scaled, text: float(value)}
   end
 end

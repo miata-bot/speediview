@@ -21,9 +21,9 @@ defmodule Megasquirt.MSL.Replay do
   def handle_continue(:calculate_times, state) do
     times =
       state.data
-      |> Enum.map(fn(%{"Time" => time}) -> time end)
+      |> Enum.map(fn %{"Time" => time} -> time end)
 
-    send self(), :tick
+    send(self(), :tick)
     {:noreply, %{state | times: times}}
   end
 
@@ -40,7 +40,7 @@ defmodule Megasquirt.MSL.Replay do
   end
 
   def handle_info(:tick, %{times: [now], data: [data]} = state) do
-    IO.puts "final tick"
+    IO.puts("final tick")
     {:noreply, %{state | times: [], data: []}}
   end
 end

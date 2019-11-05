@@ -44,7 +44,7 @@ defmodule Megasquirt.MixProject do
       {:shoehorn, "~> 0.5.0"},
       {:ring_logger, "~> 0.6"},
       {:scenic, "~> 0.10"},
-      {:scenic_sensor, "~> 0.7"}
+      {:scenic_fuel_gauge, "~> 0.1.0"}
     ] ++ deps(@target)
   end
 

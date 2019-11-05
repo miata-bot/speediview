@@ -71,7 +71,7 @@ defmodule Megasquirt.UART.RealtimeData do
     "AFR" => :afr1,
     "VVT target 1" => :vvt_target1,
     "canout1_8" => :canout1_8,
-    "portmj" =>  :portmj,
+    "portmj" => :portmj,
     # "Engine idling" =>
     "canout9_16" => :canout9_16,
     "Alternator target voltage" => :alt_targv,
@@ -191,7 +191,7 @@ defmodule Megasquirt.UART.RealtimeData do
     # "EAE1" =>
     # "PWM Idle duty" =>
     # "Sensor 02" =>
-    "CLT" => :coolant,
+    "CLT" => :coolant
     # "MPG(UK)" =>
     # "CAN error bits" =>
     # "Sensor 04" =>
@@ -313,7 +313,7 @@ defmodule Megasquirt.UART.RealtimeData do
     output_channel(barometer, true, 16, "kPa", 0.100, 0.0),
     output_channel(map, true, 16, "kPa", 0.100, 0.0),
     output_channel(mat, true, 16, "�F", 0.100, 0.0),
-    output_channel(coolant, true, 16, "�F", 0.100, 0.0),
+    output_channel(clt, true, 16, "�F", 0.100, 0.0),
     output_channel(tps, true, 16, "%", 0.100, 0.0),
     output_channel(battery_voltage, true, 16, "v", 0.100, 0.0),
     output_channel(afr1_old, true, 16, "AFR", 0.100, 0.0),
@@ -615,6 +615,8 @@ defmodule Megasquirt.UART.RealtimeData do
     # output_channel(can_error, false, 16, "", 1, 0),
     _::binary
   >>
+
+  def parse(_), do: :error
 
   def engine(
         <<ready::size(1), crank::size(1), startw::size(1), warmup::size(1), tpsaen::size(1),
