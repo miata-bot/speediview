@@ -2,21 +2,35 @@ defmodule Megasquirt.MixProject do
   use Mix.Project
 
   @target System.get_env("MIX_TARGET") || "host"
+  @app :megasquirt
+  @all_targets [:rpi3]
 
   def project do
     [
-      app: :megasquirt,
+      app: @app,
       version: "0.1.0",
       elixir: "~> 1.7",
       target: @target,
-      archives: [nerves_bootstrap: "~> 1.0"],
+      archives: [nerves_bootstrap: "~> 1.6"],
       deps_path: "deps/#{@target}",
       build_path: "_build/#{@target}",
-      lockfile: "mix.lock.#{@target}",
       start_permanent: Mix.env() == :prod,
+      elixirc_paths: elixirc_paths(Mix.env(), Mix.target()),
       build_embedded: true,
       aliases: [loadconfig: [&bootstrap/1]],
-      deps: deps()
+      deps: deps(),
+      releases: [{@app, release()}],
+      preferred_cli_target: [run: :host, test: :host]
+    ]
+  end
+
+  def release do
+    [
+      overwrite: true,
+      cookie: "democookie",
+      include_erts: &Nerves.Release.erts/0,
+      steps: [&Nerves.Release.init/1, :assemble],
+      strip_beams: false
     ]
   end
 
@@ -38,10 +52,9 @@ defmodule Megasquirt.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:nerves, "~> 1.4.5", runtime: false},
-      {:elixir_make, "0.5.0", runtime: false},
+      {:nerves, "~> 1.5", runtime: false},
       {:circuits_uart, "~> 1.3"},
-      {:shoehorn, "~> 0.5.0"},
+      {:shoehorn, "~> 0.6"},
       {:ring_logger, "~> 0.6"},
       {:scenic, "~> 0.10"},
       {:scenic_fuel_gauge, "~> 0.1.0"}
@@ -57,12 +70,29 @@ defmodule Megasquirt.MixProject do
 
   defp deps(target) do
     [
-      {:nerves_runtime, "~> 0.9"},
+      {:nerves_runtime, "~> 0.10"},
       {:scenic_driver_nerves_rpi, "~> 0.10"},
       {:scenic_driver_nerves_touch, "~> 0.10"},
-      {:nerves_init_gadget, "~> 0.6"}
+      {:toolshed, "~> 0.2"},
+      {:busybox, "~> 0.1", targets: @all_targets},
+      {:vintage_net, "~> 0.6", targets: @all_targets},
+      {:nerves_firmware_ssh, "~> 0.2", targets: @all_targets},
+      {:nerves_time, "~> 0.2", targets: @all_targets},
+      {:mdns_lite, "~> 0.4", targets: @all_targets}
     ] ++ system(target)
   end
 
-  defp system("rpi3"), do: [{:farmbot_system_rpi3, "~> 1.7.2-farmbot.2", runtime: false}]
+  defp system("rpi3"), do: [{:nerves_system_rpi3a, "~> 1.9", runtime: false}]
+
+  defp elixirc_paths(:test, :host) do
+    ["./lib", "./test/support"]
+  end
+
+  defp elixirc_paths(_, :host) do
+    ["./lib"]
+  end
+
+  defp elixirc_paths(_env, _target) do
+    ["./lib", "./platform/"]
+  end
 end

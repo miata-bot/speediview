@@ -21,6 +21,7 @@ defmodule Megasquirt.Application do
     [
       {Registry, keys: :duplicate, name: MegasquirtData},
       {Megasquirt.UART, tty: "/dev/ttyUSB0", registry: MegasquirtData},
+      {Megasquirt.Scenes.Settings.MockBackend, []},
       # {Megasquirt.Mock, registry: MegasquirtData},
       {Scenic, viewports: [main_viewport_config]}
     ]

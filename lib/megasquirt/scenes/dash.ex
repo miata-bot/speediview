@@ -2,11 +2,13 @@ defmodule Megasquirt.Scene.Dash do
   use Scenic.Scene
   alias Scenic.Graph
   # import Scenic.Primitives
+  import Scenic.Components
   import Megasquirt.Gauge
+  alias MegaSquirt.Scene.Settings
   @intro_animation_time 50
 
-  def init(args, _opts) do
-    IO.inspect(self, label: "PID")
+  def init(args, opts) do
+    viewport = opts[:viewport]
     registry = Keyword.fetch!(args, :registry)
 
     graph =
@@ -17,10 +19,21 @@ defmodule Megasquirt.Scene.Dash do
       |> gauge(:clt, %{value: 0.0, text: float(0.0)}, translate: {0, 200})
       |> gauge(:tps, %{value: 0.0, text: float(0.0)}, translate: {300, 200})
       |> gauge(:adv, %{value: 0.0, text: float(0.0)}, translate: {600, 200})
+      |> button("Settings", id: :settings_button, translate: {10, 435})
 
     {:ok, _} = Registry.register(registry, :dispatch, nil)
     send(self(), {:intro_animation_forward, 0.0})
-    {:ok, %{graph: graph, animation_playing: true}, push: graph}
+    {:ok, %{graph: graph, animation_playing: true, viewport: viewport}, push: graph}
+  end
+
+  def filter_event({:click, :settings_button}, _from, state) do
+    IO.puts("button!")
+    Scenic.ViewPort.set_root(state.viewport, {Settings, []})
+    {:noreply, state}
+  end
+
+  def filter_event(_, _from, state) do
+    {:noreply, state, push: state.graph}
   end
 
   def handle_info({:intro_animation_forward, v}, state) when v >= 1.0 do

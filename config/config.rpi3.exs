@@ -20,11 +20,38 @@ config :megasquirt, :viewport, %{
   ]
 }
 
-config :nerves_init_gadget,
-  ifname: "eth0",
-  address_method: :dhcpd,
-  mdns_domain: "megasquirt.local",
-  node_name: nil,
-  node_host: :mdns_domain
+keys =
+  [
+    Path.join([System.user_home!(), ".ssh", "id_rsa.pub"]),
+    Path.join([System.user_home!(), ".ssh", "id_ecdsa.pub"]),
+    Path.join([System.user_home!(), ".ssh", "id_ed25519.pub"])
+  ]
+  |> Enum.filter(&File.exists?/1)
 
-config :logger, backends: [RingLogger]
+if keys == [],
+  do:
+    Mix.raise("""
+    No SSH public keys found in ~/.ssh. An ssh authorized key is needed to
+    log into the Nerves device and update firmware on it using ssh.
+    See your project's config.exs for this error message.
+    """)
+
+config :nerves_firmware_ssh,
+  authorized_keys: Enum.map(keys, &File.read!/1)
+
+config :vintage_net,
+  regulatory_domain: "US",
+  config: [
+    {"usb0", %{type: VintageNet.Technology.Gadget}},
+    {"eth0",
+     %{
+       type: VintageNet.Technology.Ethernet,
+       ipv4: %{
+         method: :dhcp
+       }
+     }},
+    {"wlan0",
+     %{
+       type: VintageNet.Technology.WiFi
+     }}
+  ]
