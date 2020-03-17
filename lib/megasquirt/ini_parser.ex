@@ -13,7 +13,7 @@ defmodule Megasquirt.IniParser do
 
   defp process_key_values(list_of_headers_and_strings) do
     Enum.map(list_of_headers_and_strings, fn {header, strings} ->
-      {header, Task.async(fn -> do_process_key_values(strings) end)}
+      {header, Task.async(fn -> do_process_key_values(strings, []) end)}
     end)
     |> Enum.map(fn {header, task} ->
       case Task.await(task) do
@@ -23,22 +23,60 @@ defmodule Megasquirt.IniParser do
     end)
   end
 
-  defp do_process_key_values(strings, acc \\ [])
+  defp do_process_key_values(strings, acc)
 
   defp do_process_key_values([str | rest], acc) do
     [key | value] = String.split(str, "=")
-
-    value =
-      Enum.map(value, &String.trim/1)
-      |> Enum.join(" ")
-      |> String.split(",")
-      |> Enum.map(&String.trim/1)
-
-    v = {String.trim(key), value}
-    do_process_key_values(rest, [v | acc])
+    value = process_value(Enum.join(value, " "), <<>>, [])
+    key = String.trim(key)
+    do_process_key_values(rest, [{key, value} | acc])
   end
 
   defp do_process_key_values([], acc), do: Enum.reverse(acc)
+
+  def process_value(value, buffer, acc)
+
+  # starts an eval value
+  def process_value(<<"{", rest::binary>>, buffer, acc) do
+    # raise(rest)
+    acc = if String.trim(buffer) == "", do: acc, else: [buffer | acc]
+    {eval_buffer, rest} = process_eval(rest, <<>>)
+    process_value(rest, <<>>, [{:eval, eval_buffer} | acc])
+  end
+
+  # Split value condition
+  def process_value(<<",", rest::binary>>, buffer, acc) do
+    if String.trim(buffer) == "",
+      do: process_value(rest, <<>>, acc),
+      else: process_value(rest, <<>>, [buffer | acc])
+  end
+
+  # not special, buffer the character
+  def process_value(<<char::binary-1, rest::binary>>, buffer, acc) when is_binary(buffer) do
+    process_value(rest, buffer <> char, acc)
+  end
+
+  # end of line
+  def process_value(<<>>, buffer, acc) do
+    acc = if String.trim(buffer) == "", do: acc, else: [buffer | acc]
+
+    acc
+    |> Enum.map(fn
+      {:eval, buffer} -> {:eval, String.trim(buffer)}
+      buffer when is_binary(buffer) -> String.trim(buffer)
+    end)
+    |> Enum.reverse()
+  end
+
+  # end the eval statement, back to processing the rest of the line
+  def process_eval(<<"}", rest::binary>>, buffer) do
+    {buffer, rest}
+  end
+
+  # Not special, buffer the eval character
+  def process_eval(<<char::binary-1, rest::binary>>, buffer) do
+    process_eval(rest, buffer <> char)
+  end
 
   defp process_headers(list_of_strs, acc \\ [])
 
@@ -163,7 +201,6 @@ defmodule Megasquirt.IniParser do
 
   defp evaluate_if([{:if, condition, result} | rest], env) do
     if List.keyfind(env, condition, 0) do
-      IO.inspect(result, label: "#if #{condition}")
       result
     else
       evaluate_if(rest, env)
@@ -172,7 +209,6 @@ defmodule Megasquirt.IniParser do
 
   defp evaluate_if([{:elif, condition, result} | rest], env) do
     if List.keyfind(env, condition, 0) do
-      IO.inspect(result, label: "#elif #{condition}")
       result
     else
       evaluate_if(rest, env)
@@ -180,7 +216,6 @@ defmodule Megasquirt.IniParser do
   end
 
   defp evaluate_if([{:else, _, result} | _rest], _env) do
-    IO.inspect(result, label: "#else")
     result
   end
 
