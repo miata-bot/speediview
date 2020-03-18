@@ -17,7 +17,7 @@ defmodule Megasquirt.IniParser do
     end)
     |> Enum.map(fn {header, task} ->
       case Task.await(task) do
-        [_ | _] = value -> {header, value}
+        [_ | _] = value -> {String.to_atom(header), value}
         error -> raise("error processing key values in headr: #{header}: #{inspect(error)}")
       end
     end)
@@ -28,7 +28,7 @@ defmodule Megasquirt.IniParser do
   defp do_process_key_values([str | rest], acc) do
     [key | value] = String.split(str, "=")
     value = process_value(Enum.join(value, " "), <<>>, [])
-    key = String.trim(key)
+    key = String.to_atom(String.trim(key))
     do_process_key_values(rest, [{key, value} | acc])
   end
 
@@ -63,9 +63,35 @@ defmodule Megasquirt.IniParser do
     acc
     |> Enum.map(fn
       {:eval, buffer} -> {:eval, String.trim(buffer)}
-      buffer when is_binary(buffer) -> String.trim(buffer)
+      buffer when is_binary(buffer) -> typecast(String.trim(buffer))
+      value -> value
     end)
     |> Enum.reverse()
+  end
+
+  def typecast("\"" <> _ = string) do
+    string
+    |> String.trim_leading("\"")
+    |> String.trim_trailing("\"")
+  end
+
+  def typecast(<<"[", first_bit_str::binary-1, ":", last_bit_str::binary-1, "]">>) do
+    {first_bit, ""} = Integer.parse(first_bit_str)
+    {last_bit, ""} = Integer.parse(last_bit_str)
+
+    {first_bit, last_bit}
+  end
+
+  def typecast(value) do
+    case Float.parse(value) do
+      {float, ""} when is_float(float) ->
+        float
+
+      _ ->
+        if String.contains?(value, " "),
+          do: value,
+          else: String.to_atom(value)
+    end
   end
 
   # end the eval statement, back to processing the rest of the line
