@@ -1,5 +1,5 @@
-defmodule Megasquirt.Component.Gauge do
-  import Megasquirt.Util
+defmodule SpeediView.Component.Gauge do
+  import SpeediView.Util
   alias Scenic.Graph
   alias Scenic.ViewPort
   import Scenic.Primitives
@@ -94,10 +94,11 @@ defmodule Megasquirt.Component.Gauge do
       |> Map.put(:pressed, true)
       |> Map.put(:contained, true)
 
-    send_event({:down, state.id, %{x: x, y: y}})
+    send_event({:down, state.id, %{pid: self(), x: x, y: y}})
     IO.inspect(down, label: "down")
     ViewPort.capture_input(context, [:cursor_button, :cursor_pos])
-    {:noreply, state, push: state.graph}
+    graph = Graph.modify(state.graph, :container, &update_opts(&1, fill: {255, 255, 255, 40}))
+    {:noreply, %{state | graph: graph}, push: graph}
   end
 
   def handle_input(
@@ -107,13 +108,15 @@ defmodule Megasquirt.Component.Gauge do
       ) do
     IO.inspect(left, label: "up")
     state = Map.put(state, :pressed, false)
-    send_event({:up, id, %{x: x, y: y}})
+    send_event({:up, id, %{pid: self(), x: x, y: y}})
     ViewPort.release_input(context, [:cursor_button, :cursor_pos])
-    {:noreply, state, push: state.graph}
+    graph = Graph.modify(state.graph, :container, &update_opts(&1, fill: {255, 255, 255, 0}))
+
+    {:noreply, %{state | graph: graph}, push: graph}
   end
 
   def handle_input({:cursor_pos, {x, y}}, _context, %{pressed: true} = state) do
-    send_event({:move, state.id, %{x: x, y: y}})
+    send_event({:move, state.id, %{pid: self(), x: x, y: y}})
     {:noreply, state, push: state.graph}
   end
 
@@ -164,7 +167,6 @@ defmodule Megasquirt.Component.Gauge do
 
   defp add_gauge(group, data, id) do
     group
-    |> rrect({200, 150, 6}, stroke: {4, :white})
     |> arc({90, :math.pi() * -0.8, :math.pi() * -0.2}, stroke: {4, :white}, translate: {100, 100})
     |> line({{0, 0}, {8, 8}}, stroke: {6, :white}, translate: {29, 45})
     |> line({{0, 0}, {-8, 8}}, stroke: {6, :white}, translate: {171, 45})
@@ -175,7 +177,9 @@ defmodule Megasquirt.Component.Gauge do
   defp add_needle(graph, data, id) do
     clamped = clamp(data[:value])
     rotation = @min_rotation + @max_rotation_travel * clamped
+
     group(graph, &build_needle/1, id: {id, :needle}, rotate: rotation, translate: {100, 100})
+    |> rrect({200, 150, 6}, stroke: {4, :white}, fill: {255, 255, 255, 0}, id: :container)
   end
 
   defp build_needle(group) do

@@ -1,7 +1,7 @@
-defmodule Megasquirt.Ini do
+defmodule SpeediView.Ini do
   @moduledoc "Represents a parsed ini file"
 
-  alias Megasquirt.Ini.{
+  alias SpeediView.Ini.{
     MegaTune,
     OutputChannels
   }

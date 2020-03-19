@@ -1,4 +1,4 @@
-defmodule Megasquirt.Ini.OutputChannels do
+defmodule SpeediView.Ini.OutputChannels do
   @moduledoc """
   Responsible for working with the `OutputChannels` portion of an Ini.
   Generates an anon function that is capable of parsing realtime data from
@@ -10,7 +10,7 @@ defmodule Megasquirt.Ini.OutputChannels do
 
   @doc """
   defines functions for parsing a payload based on the `OutputChannels`
-  section of a megasquirt ini file
+  section of a speediview ini file
   """
   @spec gen_decode_realtime_data([IniParser.record()]) :: decode_realtime_data_fun()
   def gen_decode_realtime_data(output_channels) do

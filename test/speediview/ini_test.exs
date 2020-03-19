@@ -1,6 +1,6 @@
-defmodule Megasquirt.IniTest do
+defmodule SpeediView.IniTest do
   use ExUnit.Case
-  alias Megasquirt.Ini
+  alias SpeediView.Ini
 
   test "creates a spec from an ini" do
     ini_string = """

@@ -1,4 +1,4 @@
-defmodule Megasquirt.Application do
+defmodule SpeediView.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -10,13 +10,13 @@ defmodule Megasquirt.Application do
   def start(_type, _args) do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: SnTest.Supervisor]
+    opts = [strategy: :one_for_one, name: SpeediView.Supervisor]
     Supervisor.start_link(children(@target), opts)
   end
 
   # List all child processes to be supervised
   def children("host") do
-    main_viewport_config = Application.get_env(:megasquirt, :viewport)
+    main_viewport_config = Application.get_env(:speediview, :viewport)
 
     [
       {Scenic, viewports: [main_viewport_config]}
@@ -24,10 +24,11 @@ defmodule Megasquirt.Application do
   end
 
   def children(_target) do
-    main_viewport_config = Application.get_env(:megasquirt, :viewport)
+    main_viewport_config = Application.get_env(:speediview, :viewport)
 
     [
-      {Scenic, viewports: [main_viewport_config]}
+      {Scenic, viewports: [main_viewport_config]},
+      SpeedyView.PlatformSupervisor
     ]
   end
 end

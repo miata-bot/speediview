@@ -1,4 +1,4 @@
-defmodule Megasquirt.Ini.MegaTune do
+defmodule SpeediView.Ini.MegaTune do
   @moduledoc """
   Required header on a tunerstudio ini
   """
