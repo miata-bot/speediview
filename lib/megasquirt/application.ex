@@ -19,10 +19,6 @@ defmodule Megasquirt.Application do
     main_viewport_config = Application.get_env(:megasquirt, :viewport)
 
     [
-      {Registry, keys: :duplicate, name: MegasquirtData},
-      {Megasquirt.UART, tty: "/dev/ttyUSB0", registry: MegasquirtData},
-      {Megasquirt.Scenes.Settings.MockBackend, []},
-      # {Megasquirt.Mock, registry: MegasquirtData},
       {Scenic, viewports: [main_viewport_config]}
     ]
   end
@@ -31,8 +27,6 @@ defmodule Megasquirt.Application do
     main_viewport_config = Application.get_env(:megasquirt, :viewport)
 
     [
-      {Registry, keys: :duplicate, name: MegasquirtData},
-      {Megasquirt.UART, tty: "/dev/ttyUSB0", registry: MegasquirtData},
       {Scenic, viewports: [main_viewport_config]}
     ]
   end

@@ -1,104 +1,121 @@
 defmodule Megasquirt.Scene.Dash do
+  @moduledoc """
+  Root scene for the dash display
+  """
+
+  import Megasquirt.Util
   use Scenic.Scene
   alias Scenic.Graph
-  # import Scenic.Primitives
-  import Scenic.Components
-  import Megasquirt.Gauge
-  alias MegaSquirt.Scene.Settings
-  @intro_animation_time 50
+  import Scenic.Primitives
+  # import Scenic.Components
+  import Megasquirt.Component.Gauge, only: [gauge: 3]
 
-  def init(args, opts) do
+  def init(_args, opts) do
+    IO.puts("scene init")
     viewport = opts[:viewport]
-    registry = Keyword.fetch!(args, :registry)
+
+    layout =
+      case File.read("layout.etf") do
+        {:ok, bin} -> :erlang.binary_to_term(bin)
+        _ -> %{}
+      end
 
     graph =
       Graph.build()
-      |> gauge(:rpm, %{value: 0.0, text: float(0.0)}, translate: {0, 50})
-      |> gauge(:map, %{value: 0.0, text: float(0.0)}, translate: {300, 50})
-      |> gauge(:afr, %{value: 0.0, text: float(0.0)}, translate: {600, 50})
-      |> gauge(:clt, %{value: 0.0, text: float(0.0)}, translate: {0, 200})
-      |> gauge(:tps, %{value: 0.0, text: float(0.0)}, translate: {300, 200})
-      |> gauge(:adv, %{value: 0.0, text: float(0.0)}, translate: {600, 200})
-      |> button("Settings", id: :settings_button, translate: {10, 435})
+      |> gauge(%{data: 0.0, text: float(0.0)}, id: :rpm, translate: layout[:rpm] || {0, 50})
+      |> gauge(%{data: 0.0, text: float(0.0)}, id: :map, translate: layout[:map] || {300, 50})
+      |> gauge(%{data: 0.0, text: float(0.0)}, id: :afr, translate: layout[:afr] || {600, 50})
+      |> gauge(%{data: 0.0, text: float(0.0)}, id: :clt, translate: layout[:clt] || {0, 200})
+      |> gauge(%{data: 0.0, text: float(0.0)}, id: :tps, translate: layout[:tps] || {300, 200})
+      |> gauge(%{data: 0.0, text: float(0.0)}, id: :adv, translate: layout[:adv] || {600, 200})
 
-    {:ok, _} = Registry.register(registry, :dispatch, nil)
-    send(self(), {:intro_animation_forward, 0.0})
-    {:ok, %{graph: graph, animation_playing: true, viewport: viewport}, push: graph}
+    {:ok,
+     %{
+       graph: graph,
+       animation_playing: true,
+       viewport: viewport,
+       picknplace: %{},
+       layout: layout,
+       selected: nil,
+       cursor: {nil, nil}
+     }, push: graph}
   end
 
-  def filter_event({:click, :settings_button}, _from, state) do
-    IO.puts("button!")
-    Scenic.ViewPort.set_root(state.viewport, {Settings, []})
+  def terminate(reason, _state) do
+    IO.inspect(reason, label: "dash crash")
+  end
+
+  def handle_input({:key, {"down", :release, _}}, _context, %{selected: id} = state)
+      when not is_nil(id) do
+    info = state.picknplace[state.selected]
+    pnp = Map.put(state.picknplace, id, %{info | y: info.y + 10})
+    graph = Graph.modify(state.graph, id, &update_opts(&1, translate: {pnp[id].x, pnp[id].y}))
+    {:noreply, %{state | picknplace: pnp, graph: graph}, push: graph}
+  end
+
+  def handle_input({:key, {"up", :release, _}}, _context, %{selected: id} = state)
+      when not is_nil(id) do
+    info = state.picknplace[id]
+    pnp = Map.put(state.picknplace, id, %{info | y: info.y - 10})
+    graph = Graph.modify(state.graph, id, &update_opts(&1, translate: {pnp[id].x, pnp[id].y}))
+    {:noreply, %{state | picknplace: pnp, graph: graph}, push: graph}
+  end
+
+  def handle_input({:key, {"left", :release, _}}, _context, %{selected: id} = state)
+      when not is_nil(id) do
+    info = state.picknplace[id]
+    pnp = Map.put(state.picknplace, id, %{info | x: info.x - 10})
+    graph = Graph.modify(state.graph, id, &update_opts(&1, translate: {pnp[id].x, pnp[id].y}))
+    {:noreply, %{state | picknplace: pnp, graph: graph}, push: graph}
+  end
+
+  def handle_input({:key, {"right", :release, _}}, _context, %{selected: id} = state)
+      when not is_nil(id) do
+    info = state.picknplace[id]
+    pnp = Map.put(state.picknplace, id, %{info | x: info.x + 10})
+    graph = Graph.modify(state.graph, id, &update_opts(&1, translate: {pnp[id].x, pnp[id].y}))
+    {:noreply, %{state | picknplace: pnp, graph: graph}, push: graph}
+  end
+
+  def handle_input(_event, _context, state) do
     {:noreply, state}
   end
 
-  def filter_event(_, _from, state) do
+  def filter_event({:down, id, info}, _from, state) do
+    IO.puts("pickup: #{id} x=#{info.x} y=#{info.y}")
+    pnp = state.picknplace
+    pnp = Map.put(pnp, id, info)
+    {:noreply, %{state | picknplace: pnp, selected: id}, push: state.graph}
+  end
+
+  def filter_event({:move, id, info}, _from, state) do
+    IO.puts("move #{id} x=#{info.x} y=#{info.y}")
+    pnp = state.picknplace
+    x_diff = info.x - pnp[id].x
+    y_diff = info.y - pnp[id].y
+
+    graph =
+      Graph.modify(state.graph, id, fn %{transforms: %{translate: {current_x, current_y}}} =
+                                         component ->
+        update_opts(component, translate: {current_x + x_diff, current_y + y_diff})
+      end)
+
+    pnp = Map.put(pnp, id, info)
+    {:noreply, %{state | picknplace: pnp, graph: graph}, push: graph}
+  end
+
+  def filter_event({:up, id, info}, _from, state) do
+    IO.puts("drop #{id} x=#{info.x} y=#{info.y}")
+    pnp = state.picknplace
+    pnp = Map.put(pnp, id, info)
+    %{transforms: %{translate: xy}} = Graph.get!(state.graph, id)
+    layout = Map.put(state.layout, id, xy)
+    File.write!("layout.etf", :erlang.term_to_binary(layout))
+    {:noreply, %{state | picknplace: pnp, layout: layout, selected: nil}, push: state.graph}
+  end
+
+  def filter_event(_event, _from, state) do
+    # IO.inspect(event, label: "dash event")
     {:noreply, state, push: state.graph}
-  end
-
-  def handle_info({:intro_animation_forward, v}, state) when v >= 1.0 do
-    send(self(), {:intro_animation_backward, 1.0})
-    {:noreply, state}
-  end
-
-  def handle_info({:intro_animation_forward, value}, state) do
-    graph =
-      state.graph
-      |> update_gauge(:rpm, %{value: value, text: float(value * 100)})
-      |> update_gauge(:map, %{value: value, text: float(value * 100)})
-      |> update_gauge(:afr, %{value: value, text: float(value * 100)})
-      |> update_gauge(:clt, %{value: value, text: float(value * 100)})
-      |> update_gauge(:tps, %{value: value, text: float(value * 100)})
-      |> update_gauge(:adv, %{value: value, text: float(value * 100)})
-
-    Process.send_after(self(), {:intro_animation_forward, value + 0.1}, @intro_animation_time)
-    {:noreply, %{state | graph: graph}, push: graph}
-  end
-
-  def handle_info({:intro_animation_backward, v}, state) when v <= 0.0 do
-    {:noreply, %{state | animation_playing: false}}
-  end
-
-  def handle_info({:intro_animation_backward, value}, state) do
-    graph =
-      state.graph
-      |> update_gauge(:rpm, %{value: value, text: float(value * 100)})
-      |> update_gauge(:map, %{value: value, text: float(value * 100)})
-      |> update_gauge(:afr, %{value: value, text: float(value * 100)})
-      |> update_gauge(:clt, %{value: value, text: float(value * 100)})
-      |> update_gauge(:tps, %{value: value, text: float(value * 100)})
-      |> update_gauge(:adv, %{value: value, text: float(value * 100)})
-
-    Process.send_after(self(), {:intro_animation_backward, value - 0.1}, @intro_animation_time)
-    {:noreply, %{state | graph: graph}, push: graph}
-  end
-
-  def handle_info({:realtime, data}, %{animation_playing: false} = state) do
-    graph =
-      state.graph
-      |> update_gauge(:rpm, scale_to_gauge(data.rpm, 0.0, 8000.0))
-      |> update_gauge(:map, scale_to_gauge(data.map, 0.0, 110.0))
-      |> update_gauge(:afr, scale_to_gauge(data.afr1, 0.0, 18.0))
-      |> update_gauge(:clt, scale_to_gauge(data.clt, 0.0, 275.0))
-      |> update_gauge(:tps, scale_to_gauge(data.tps, 0.0, 100.0))
-      |> update_gauge(:adv, scale_to_gauge(data.advance, 0.0, 55.0))
-
-    {:noreply, %{state | graph: graph}, push: graph}
-  end
-
-  def handle_info({:realtime, _}, state) do
-    {:noreply, state, push: state.graph}
-  end
-
-  def float(data) when is_float(data) do
-    to_string(:io_lib.format('~.2f', [data]))
-  end
-
-  def scale_to_gauge(0, _, _), do: 0
-
-  def scale_to_gauge(value, low, high) do
-    x = (value - low) / (high - low)
-    scaled = 0.0 + (1.0 - 0.0) * x
-    %{value: scaled, text: float(value)}
   end
 end

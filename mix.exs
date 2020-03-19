@@ -17,7 +17,7 @@ defmodule Megasquirt.MixProject do
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env(), Mix.target()),
       build_embedded: true,
-      aliases: [loadconfig: [&bootstrap/1]],
+      aliases: [loadconfig: [&bootstrap/1], test: ["test --no-start"]],
       deps: deps(),
       releases: [{@app, release()}],
       preferred_cli_target: [run: :host, test: :host]

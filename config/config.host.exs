@@ -3,7 +3,7 @@ use Mix.Config
 config :megasquirt, :viewport, %{
   name: :main_viewport,
   # default_scene: {Megasquirt.Scene.Crosshair, nil},
-  default_scene: {Megasquirt.Scene.Dash, [registry: MegasquirtData]},
+  default_scene: {Megasquirt.Scene.Dash, []},
   size: {800, 480},
   opts: [scale: 1.0],
   drivers: [
