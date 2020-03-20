@@ -19,6 +19,7 @@ defmodule SpeediView.Application do
     main_viewport_config = Application.get_env(:speediview, :viewport)
 
     [
+      SpeediView.PubSub,
       {Scenic, viewports: [main_viewport_config]}
     ]
   end
@@ -27,6 +28,7 @@ defmodule SpeediView.Application do
     main_viewport_config = Application.get_env(:speediview, :viewport)
 
     [
+      SpeediView.PubSub,
       {Scenic, viewports: [main_viewport_config]},
       SpeedyView.PlatformSupervisor
     ]

@@ -31,6 +31,7 @@ defmodule SpeediView.Component.Gauge do
   def init(data, opts) when is_list(opts) do
     id = opts[:id]
     styles = opts[:styles]
+    :ok = SpeediView.PubSub.subscribe(id)
 
     # font related info
     font = @default_font
@@ -39,6 +40,9 @@ defmodule SpeediView.Component.Gauge do
     # build the graph
     graph =
       Graph.build(font: font, font_size: font_size)
+      # |> rrect({200, 150, 6}, stroke: {4, :white}, fill: {73, 82, 97, 180}, id: :container)
+      # |> circle(100, stroke: {4, :white}, fill: {73, 82, 97, 180}, id: :container)
+
       |> add_gauge(data, id)
       |> add_needle(data, id)
 
@@ -94,10 +98,11 @@ defmodule SpeediView.Component.Gauge do
       |> Map.put(:pressed, true)
       |> Map.put(:contained, true)
 
+    Process.send_after(self(), :long_press, 350)
     send_event({:down, state.id, %{pid: self(), x: x, y: y}})
     IO.inspect(down, label: "down")
     ViewPort.capture_input(context, [:cursor_button, :cursor_pos])
-    graph = Graph.modify(state.graph, :container, &update_opts(&1, fill: {255, 255, 255, 40}))
+    graph = Graph.modify(state.graph, :container, &update_opts(&1, fill: {73, 82, 97, 200}))
     {:noreply, %{state | graph: graph}, push: graph}
   end
 
@@ -110,7 +115,7 @@ defmodule SpeediView.Component.Gauge do
     state = Map.put(state, :pressed, false)
     send_event({:up, id, %{pid: self(), x: x, y: y}})
     ViewPort.release_input(context, [:cursor_button, :cursor_pos])
-    graph = Graph.modify(state.graph, :container, &update_opts(&1, fill: {255, 255, 255, 0}))
+    graph = Graph.modify(state.graph, :container, &update_opts(&1, fill: {73, 82, 97, 180}))
 
     {:noreply, %{state | graph: graph}, push: graph}
   end
@@ -125,6 +130,11 @@ defmodule SpeediView.Component.Gauge do
     {:noreply, state}
   end
 
+  def handle_info(:long_press, %{pressed: true, contained: true} = state) do
+    send_event({:long_press, state.id, %{pid: self()}})
+    {:noreply, state}
+  end
+
   def handle_info({:intro_animation_forward, v}, state) when v >= 1.0 do
     send(self(), {:intro_animation_backward, 1.0})
     {:noreply, state}
@@ -135,6 +145,7 @@ defmodule SpeediView.Component.Gauge do
       state.graph
       |> update_gauge(state.id, %{value: value, text: float(value * 100)})
 
+    send_event({:gauge_value, state.id, value})
     Process.send_after(self(), {:intro_animation_forward, value + 0.1}, @intro_animation_time)
     {:noreply, %{state | graph: graph}, push: graph}
   end
@@ -148,7 +159,20 @@ defmodule SpeediView.Component.Gauge do
       state.graph
       |> update_gauge(state.id, %{value: value, text: float(value * 100)})
 
+    send_event({:gauge_value, state.id, value})
+
     Process.send_after(self(), {:intro_animation_backward, value - 0.1}, @intro_animation_time)
+    {:noreply, %{state | graph: graph}, push: graph}
+  end
+
+  def handle_info({SpeediView.PubSub, id, value}, %{id: id} = state) when is_float(value) do
+    IO.inspect(value, label: "gauge updage for #{id}")
+
+    graph =
+      state.graph
+      |> update_gauge(id, %{value: value, text: float(value * 100)})
+
+    send_event({:gauge_value, id, value})
     {:noreply, %{state | graph: graph}, push: graph}
   end
 
@@ -167,6 +191,12 @@ defmodule SpeediView.Component.Gauge do
 
   defp add_gauge(group, data, id) do
     group
+    |> circle(100,
+      stroke: {4, :white},
+      fill: {73, 82, 97, 180},
+      id: :container,
+      translate: {100, 90}
+    )
     |> arc({90, :math.pi() * -0.8, :math.pi() * -0.2}, stroke: {4, :white}, translate: {100, 100})
     |> line({{0, 0}, {8, 8}}, stroke: {6, :white}, translate: {29, 45})
     |> line({{0, 0}, {-8, 8}}, stroke: {6, :white}, translate: {171, 45})
@@ -179,7 +209,6 @@ defmodule SpeediView.Component.Gauge do
     rotation = @min_rotation + @max_rotation_travel * clamped
 
     group(graph, &build_needle/1, id: {id, :needle}, rotate: rotation, translate: {100, 100})
-    |> rrect({200, 150, 6}, stroke: {4, :white}, fill: {255, 255, 255, 0}, id: :container)
   end
 
   defp build_needle(group) do

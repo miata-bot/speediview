@@ -3,6 +3,8 @@ defmodule SpeediView.Layout do
   Saves layouts to disk for next startup
   """
 
+  defstruct version: "0.1.0"
+
   @doc "Save the layout to disk"
   def save(layout) do
     # remote_reload(layout)
@@ -32,6 +34,8 @@ defmodule SpeediView.Layout do
   #     Node.set_cookie(String.to_atom(cookie))
   #     true = Node.connect(node_name)
   #     :rpc.call(node_name, __MODULE__, :save, [layout])
+  #     :rpc.call(node_name, Application, :stop, [:speediview])
+  #     :rpc.call(node_name, Application, :start, [:speediview])
   #   end
   # else
   #   defp remote_reload(_), do: :ok
