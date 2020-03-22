@@ -5,11 +5,11 @@ config :nerves_firmware_ssh,
     File.read!(Path.join(System.user_home!(), ".ssh/id_rsa.pub"))
   ]
 
-config :speediview, SpeediView.Layout, layout_file: "/root/layout.etf"
+config :speediview, SpeediViewUI.Layout, layout_file: "/root/layout.etf"
 
 config :speediview, :viewport, %{
   name: :main_viewport,
-  default_scene: {SpeediView.Scene.Dash, []},
+  default_scene: {SpeediViewUI.Scene.Dash, []},
   size: {800, 480},
   opts: [scale: 1.0],
   drivers: [

@@ -1,4 +1,4 @@
-defmodule SpeediView.Platform.Distribution do
+defmodule SpeediViewPlatform.Distribution do
   @moduledoc """
   Starts erlang distrution
   """

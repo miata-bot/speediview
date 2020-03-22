@@ -16,21 +16,17 @@ defmodule SpeediView.Application do
 
   # List all child processes to be supervised
   def children("host") do
-    main_viewport_config = Application.get_env(:speediview, :viewport)
-
     [
       SpeediView.PubSub,
-      {Scenic, viewports: [main_viewport_config]}
+      SpeediViewUI.UISupervisor
     ]
   end
 
   def children(_target) do
-    main_viewport_config = Application.get_env(:speediview, :viewport)
-
     [
+      SpeedyViewPlatform.PlatformSupervisor,
       SpeediView.PubSub,
-      {Scenic, viewports: [main_viewport_config]},
-      SpeedyView.PlatformSupervisor
+      SpeediViewUI.UISupervisor
     ]
   end
 end

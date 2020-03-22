@@ -2,7 +2,7 @@ use Mix.Config
 
 config :speediview, :viewport, %{
   name: :main_viewport,
-  default_scene: {SpeediView.Scene.Dash, []},
+  default_scene: {SpeediViewUI.Scene.Dash, []},
   size: {800, 480},
   opts: [scale: 1.0],
   drivers: [

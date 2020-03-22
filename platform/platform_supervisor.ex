@@ -1,4 +1,4 @@
-defmodule SpeedyView.PlatformSupervisor do
+defmodule SpeedyViewPlatform.PlatformSupervisor do
   @moduledoc false
 
   use Supervisor
@@ -9,7 +9,7 @@ defmodule SpeedyView.PlatformSupervisor do
 
   def init(_args) do
     children = [
-      SpeediView.Platform.Distribution
+      SpeediViewPlatform.Distribution
     ]
     Supervisor.init(children, [strategy: :one_for_all])
   end

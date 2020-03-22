@@ -27,3 +27,5 @@ foo-*.tar
 *.secret.exs
 *.secrets.exs
 *.ini
+*.msq
+*.etf
