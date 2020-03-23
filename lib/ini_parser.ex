@@ -42,6 +42,7 @@ defmodule IniParser do
     |> Enum.map(fn {header, task} ->
       case Task.await(task) do
         [_ | _] = value -> {header, value}
+        [] = value -> {header, value}
         error -> raise("error processing key values in headr: #{header}: #{inspect(error)}")
       end
     end)
@@ -77,6 +78,12 @@ defmodule IniParser do
     if String.trim(buffer) == "",
       do: process_value(rest, <<>>, acc),
       else: process_value(rest, <<>>, [buffer | acc])
+  end
+
+  # converts "\x10" into <<0x10>>
+  def process_value(<<"\\x", byte::binary-size(2), rest::binary>>, buffer, acc) do
+    int = String.to_integer(byte, 16)
+    process_value(rest, buffer <> <<int::integer-8>>, acc)
   end
 
   # not special, buffer the character
@@ -196,13 +203,8 @@ defmodule IniParser do
     preprocess(rest, acc, env)
   end
 
-  defp preprocess(["#define" <> _ | rest], acc, env) do
-    # TODO(Connor) - implement define
-    preprocess(rest, acc, env)
-  end
-
-  defp preprocess(["#9" <> _ | rest], acc, env) do
-    # TODO(Connor) what the hell is this???
+  defp preprocess(["#define " <> define | rest], acc, env) do
+    env = preprocess_define(define, env)
     preprocess(rest, acc, env)
   end
 
@@ -211,11 +213,19 @@ defmodule IniParser do
     preprocess(rest, acc, env)
   end
 
-  defp preprocess(["#" <> unknown_cmd | _rest], _acc, _env) do
-    raise("unknown preprocessor command: #{unknown_cmd}")
+  defp preprocess(["#" <> unknown_cmd | rest], acc, env) do
+    IO.inspect(unknown_cmd, label: "unknown preprocessor command")
+    preprocess(rest, acc, env)
   end
 
   defp preprocess([str | rest], acc, env) do
+    str =
+      if String.contains?(str, "$") do
+        preprocessor_replace(str, <<>>, env)
+      else
+        str
+      end
+
     preprocess(rest, [str | acc], env)
   end
 
@@ -223,10 +233,44 @@ defmodule IniParser do
     Enum.reverse(acc)
   end
 
+  defp preprocessor_replace(<<"\\$", rest::binary>>, buffer, env) do
+    preprocessor_replace(rest, buffer <> "\\$", env)
+  end
+
+  defp preprocessor_replace(<<"$", rest::binary>>, buffer, env) do
+    buffer <> find_and_replace(rest, <<>>, env)
+  end
+
+  defp preprocessor_replace(<<char::binary-size(1), rest::binary>>, buffer, env) do
+    preprocessor_replace(rest, buffer <> char, env)
+  end
+
+  defp preprocessor_replace(<<>>, buffer, _env) do
+    buffer
+  end
+
+  # called after a \$ char is found. 
+  # loops over the buffer until it matches a name inside the `env` 
+  defp find_and_replace(<<char::binary-size(1), rest::binary>>, buffer, env) do
+    buffer = buffer <> char
+
+    case List.keyfind(env, buffer, 0) do
+      {^buffer, values} ->
+        values <> rest
+
+      nil ->
+        find_and_replace(rest, buffer, env)
+    end
+  end
+
+  defp find_and_replace(<<>>, buffer, _env) do
+    raise("could not find matching variable in environment for #{buffer}")
+  end
+
   defp preprocess_set(cmd, env) do
     case String.split(String.trim(cmd), " ") do
       [name] -> [{name, true} | env]
-      [name, value] -> [{name, value} | env]
+      [name, values] -> [{name, values} | env]
     end
   end
 
@@ -237,6 +281,16 @@ defmodule IniParser do
   defp preprocess_if(name, list_of_strs, env) do
     {to_process, rest} = enumerate_if(list_of_strs, [{:if, String.trim(name), []}])
     evaluate_if(to_process, env) ++ rest
+  end
+
+  defp preprocess_define(cmd, env) do
+    case String.split(String.trim(cmd), "=") do
+      [name] ->
+        [{String.trim(name), true} | env]
+
+      [name | values] ->
+        [{String.trim(name), String.trim(Enum.join(values, " "))} | env]
+    end
   end
 
   defp enumerate_if(list_of_strs, if_buffer)
